@@ -58,14 +58,13 @@ namespace Producer
                     {
                         e.UseRoutingKeyFormatter(context =>
                         {
-                            var notificationType = context.Message.NotificationType;
-                            return $"notification.{notificationType}";
+                            return "notification.push";
                         });
                     });
                 });
             });
 
-            // EndpointConvention.Map<Messages.Commands.Order>(new Uri(Configuration["EndpointConventionOrderMessage"]));
+            EndpointConvention.Map<Messages.Commands.Order>(new Uri(Configuration["EndpointConventionOrderMessage"]));
 
             services.AddMassTransitHostedService();
         }

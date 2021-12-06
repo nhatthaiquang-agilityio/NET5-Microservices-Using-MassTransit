@@ -13,13 +13,11 @@ namespace Producer.Controllers
     public class NotificationController : ControllerBase
     {
         private readonly ILogger<NotificationController> _logger;
-        private readonly IBus _bus;
         private readonly IPublishEndpoint _publishEndpoint;
 
-        public NotificationController(ILogger<NotificationController> logger, IBus bus, IPublishEndpoint publishEndpoint)
+        public NotificationController(ILogger<NotificationController> logger, IPublishEndpoint publishEndpoint)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _bus = bus ?? throw new ArgumentNullException(nameof(bus));
             _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
         }
 

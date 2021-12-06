@@ -8,15 +8,19 @@ Example: .NET 5 Microservices using MassTransit
 
 ### Structure
 + Producer: using the API sends messages
-+ Consumer: receive messages from Queue
-+ Notification: receive messages with Exchange Topic
++ Consumer: receive messages from Queue(consumer-consumers-order)
++ Notification: receive messages with Exchange Topic=push
++ EmailService: receive message with Exchange Topic=email
 
 ### Overview
-+ Direct Queue:
++ Direct Queue
 
     ![Direct Queue](./Images/Direct-Queue.png)
 
+
 + Topic
+
+    ![Topic](./Images/Topic.png)
 
 ### Usages:
 + Start RabbitMQ Server

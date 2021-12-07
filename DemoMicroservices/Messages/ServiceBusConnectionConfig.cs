@@ -1,4 +1,5 @@
 ﻿using MassTransit;
+using MassTransit.AmazonSqsTransport;
 using MassTransit.RabbitMqTransport;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -54,6 +55,44 @@ namespace Messages
         }
 
         /// <summary>
+        /// Configures MassTransit.AmazonSQS with properties for successful connections
+        /// </summary>
+        /// <param name="configuration"></param>
+        /// <param name="configurator">configurator of AmazonSQS</param>
+        /// <param name="connectionStringName"></param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static void ConfigureNodes(
+            IConfiguration configuration, IAmazonSqsBusFactoryConfigurator configurator, string connectionStringName)
+        {
+            var connectionString = configuration.GetConnectionString(connectionStringName);
+
+            if (connectionString == null)
+            {
+                throw new InvalidOperationException($"{connectionString} is not provided in the appsettings.json");
+            }
+
+            var nodes = ExtractValuesFromConnectionString(connectionString);
+            var listNodes = nodes ?? nodes;
+
+            if (listNodes.Skip(1).Any())
+            {
+                return;
+            }
+
+            // single nodes
+            var singleInstanceNode = listNodes.Single();
+
+            configurator.Host(singleInstanceNode.HostName, configure =>
+            {
+                configure.AccessKey(singleInstanceNode.UserName);
+                configure.SecretKey(singleInstanceNode.Password);
+
+                // scope topics as well
+                configure.EnableScopedTopics();
+            });
+        }
+
+        /// <summary>
         /// Extract message bus string(connection string) to list nodes
         /// </summary>
         /// <param name="connectionStringName"></param>
@@ -92,20 +131,19 @@ namespace Messages
             var password = userAndPassSplit[1];
 
             var hostAndPort = userAndPass[1].Split(":");
+            var hostname = string.Empty;
+            var port = string.Empty;
 
-            if (hostAndPort.Length < 2)
+            if (hostAndPort.Length == 2)
             {
-                throw new InvalidOperationException("couldn't parse hostname and port from connection string");
+                hostname = hostAndPort[0].TrimEnd('/');
+                port = hostAndPort[1];
             }
-
-            var hostname = hostAndPort[0];
-            var port = hostAndPort[1];
-
-            if (hostname.Contains("/"))
+            else
             {
-                hostname = hostname.Remove(hostname.IndexOf("/"));
+                hostname = hostAndPort[0].TrimEnd('/');
             }
-
+           
             var virtualHost = DefaultVirtualHost;
 
             return new ServiceBusConnectionConfiguration

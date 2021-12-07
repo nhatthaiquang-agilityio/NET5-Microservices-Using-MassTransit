@@ -10,6 +10,8 @@ namespace Messages.Models
 
         public string NotificationContent { get; set; }
 
+        public string NotificationAddress { get; set; }
+
         public DateTime NotificationDate { get; set; }
     }
 }

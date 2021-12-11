@@ -1,6 +1,5 @@
 using Consumer.Consumers;
 using Consumer.Services;
-using GreenPipes;
 using MassTransit;
 using MassTransit.Definition;
 using Messages;
@@ -10,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using System;
 
 namespace Consumer
 {
@@ -44,14 +44,32 @@ namespace Consumer
                     configureConsumer.UseConcurrentMessageLimit(2);
                 });
 
-                configureMassTransit.UsingRabbitMq((context, configure) =>
+                if (Boolean.Parse(Configuration["UsingAmazonSQS"]))
                 {
-                    configure.PrefetchCount = 4;
-                    // Ensures the processor gets its own queue for any consumed messages
-                    configure.ConfigureEndpoints(context, new KebabCaseEndpointNameFormatter(true));
-                    ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBus");
-                });
+                    configureMassTransit.AddConsumer<OrderConsumer>();
+
+                    configureMassTransit.UsingAmazonSqs((context, configure) =>
+                    {
+                        ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBusSQS");
+
+                        configure.ReceiveEndpoint(Configuration["AmazonSQS:Queue"], endpoint =>
+                        {
+                            endpoint.ConfigureConsumer<OrderConsumer>(context);
+                        });
+                    });
+                }
+                else
+                {
+                    configureMassTransit.UsingRabbitMq((context, configure) =>
+                    {
+                        configure.PrefetchCount = 4;
+                        // Ensures the processor gets its own queue for any consumed messages
+                        configure.ConfigureEndpoints(context, new KebabCaseEndpointNameFormatter(true));
+                        ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBus");
+                    });
+                }
             });
+
             services.AddMassTransitHostedService();
         }
 

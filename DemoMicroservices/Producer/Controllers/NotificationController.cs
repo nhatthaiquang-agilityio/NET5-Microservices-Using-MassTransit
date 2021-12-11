@@ -1,6 +1,7 @@
 ﻿using MassTransit;
 using Messages.Commands;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -13,12 +14,15 @@ namespace Producer.Controllers
     public class NotificationController : ControllerBase
     {
         private readonly ILogger<NotificationController> _logger;
-        private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IBus _bus;
 
-        public NotificationController(ILogger<NotificationController> logger, IPublishEndpoint publishEndpoint)
+        private readonly IConfiguration _configuration;
+
+        public NotificationController(IConfiguration configuration, ILogger<NotificationController> logger, IBus bus)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
+            _bus = bus ?? throw new ArgumentNullException(nameof(bus));
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         }
 
         [HttpGet]
@@ -40,16 +44,28 @@ namespace Producer.Controllers
                     NotificationId = Guid.NewGuid(),
                     NotificationType = notificationModel.NotificationType,
                     NotificationDate = DateTime.Now,
-                    NotificationContent = notificationModel.NotificationContent
+                    NotificationContent = notificationModel.NotificationContent,
+                    NotificationAddress = notificationModel.NotificationAddress
                 };
 
                 try
                 {
-                    await _publishEndpoint.Publish<INotification>(notify);
+                    if(Boolean.Parse(_configuration["UsingAmazonSQS"]))
+                    {
+                        // set routingkey using Amazon SQS and SNS
+                        await _bus.Publish<INotification>(notify, x =>
+                        {
+                            x.Headers.Set("RoutingKey", notificationModel.NotificationType);
+                        });
+                    }
+                    else
+                    {
+                        await _bus.Publish<INotification>(notify);
+                    }
 
                     _logger.LogInformation(
-                       "Send to a message {NotificationId}, {NotificationType}",
-                       notify.NotificationId, notify.NotificationType);
+                       "Send to a message {NotificationId}, {NotificationType}, {NotificationContent}",
+                       notify.NotificationId, notify.NotificationType, notify.NotificationContent);
 
                     return Ok("Notification is sent.");
                 }
@@ -57,11 +73,9 @@ namespace Producer.Controllers
                 {
                     _logger.LogError(
                         exception,
-                        "Error Send Notification {NotificationId}, {NotificationType}",
-                        notify.NotificationId, notify.NotificationType);
+                        "Error Send Notification {NotificationId}, {NotificationType}, {NotificationContent}",
+                        notify.NotificationId, notify.NotificationType, notify.NotificationContent);
                 }
-
-
             }
 
             return BadRequest();

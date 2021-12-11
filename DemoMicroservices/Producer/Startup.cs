@@ -42,29 +42,41 @@ namespace Producer
 
             services.AddMassTransit(configureMassTransit =>
             {
-                configureMassTransit.UsingRabbitMq((context, configure) =>
+                if(Boolean.Parse(Configuration["UsingAmazonSQS"]))
                 {
-                    // Ensures the processor gets its own queue for any consumed messages
-                    configure.ConfigureEndpoints(context, new KebabCaseEndpointNameFormatter(true));
-                    ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBus");
-
-                    // name of the primary exchange
-                    configure.Message<INotification>(e => e.SetEntityName("send-notification"));
-
-                    // primary exchange type
-                    configure.Publish<INotification>(e => e.ExchangeType = ExchangeType.Topic);
-
-                    configure.Send<INotification>(e =>
+                    configureMassTransit.UsingAmazonSqs((context, configure) =>
                     {
-                        e.UseRoutingKeyFormatter(context =>
+                        ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBusSQS");
+                    });
+                }
+                else
+                {
+                    configureMassTransit.UsingRabbitMq((context, configure) =>
+                    {
+                        // Ensures the processor gets its own queue for any consumed messages
+                        configure.ConfigureEndpoints(context, new KebabCaseEndpointNameFormatter(true));
+                        ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBus");
+
+                        // name of the primary exchange
+                        configure.Message<INotification>(e => e.SetEntityName(configuration["BindTopic"]));
+
+                        // primary exchange type
+                        configure.Publish<INotification>(e => e.ExchangeType = ExchangeType.Topic);
+
+                        configure.Send<INotification>(e =>
                         {
-                            return "notification.push";
+                            // use customerType for the routing key
+                            e.UseRoutingKeyFormatter(context => context.Message.NotificationType);
+
+                            // multiple conventions can be set, in this case also CorrelationId
+                            e.UseCorrelationId(context => context.NotificationId);
+
                         });
                     });
-                });
+                }
             });
 
-            EndpointConvention.Map<Messages.Commands.Order>(new Uri(Configuration["EndpointConventionOrderMessage"]));
+            EndpointConvention.Map<Messages.Commands.Order>(new Uri(configuration["EndpointConventionOrderMessage"]));
 
             services.AddMassTransitHostedService();
         }

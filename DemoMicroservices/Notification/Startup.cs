@@ -9,7 +9,8 @@ using Messages;
 using Notification.Consumers;
 using RabbitMQ.Client;
 using Serilog;
-using Microsoft.Extensions.Logging;
+using System;
+using Messages.Commands;
 
 namespace Notification
 {
@@ -34,63 +35,70 @@ namespace Notification
                 .CreateLogger();
 
             services.AddRazorPages();
-            
+
             services.AddMassTransit(configureMassTransit =>
             {
-                configureMassTransit.AddConsumer<PushNotificationConsumer>();
-                configureMassTransit.AddConsumer<EmailConsumer>();
-
-                configureMassTransit.UsingRabbitMq((context, configure) =>
+                configureMassTransit.AddConsumer<PushNotificationConsumer>(config =>
                 {
-                    configure.PrefetchCount = 4;
-
-                    // Ensures the processor gets its own queue for any consumed messages
-                    configure.ConfigureEndpoints(context, new KebabCaseEndpointNameFormatter(true));
-                    ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBus");
-
-                    configure.ReceiveEndpoint("notification-message", receive =>
-                    {
-                        // turns off default fanout
-                        receive.ConfigureConsumeTopology = false;
-
-                        // a replicated queue to provide high availability and data safety. available in RMQ 3.8+
-                        receive.SetQuorumQueue();
-
-                        // enables a lazy queue for more stable cluster with better predictive performance.
-                        // Please note that you should disable lazy queues if you require really high performance, if the queues are always short, or if you have set a max-length policy.
-                        receive.SetQueueArgument("declare", "lazy");
-
-                        receive.ConfigureConsumer<PushNotificationConsumer>(context);
-
-                        receive.Bind("send-notification", eventMessage =>
-                        {
-                            eventMessage.RoutingKey = "notification.push";
-                            eventMessage.ExchangeType = ExchangeType.Topic;
-                        });
-                    });
-
-                    configure.ReceiveEndpoint("email-message", receive =>
-                    {
-                        // turns off default fanout
-                        receive.ConfigureConsumeTopology = false;
-
-                        // a replicated queue to provide high availability and data safety. available in RMQ 3.8+
-                        receive.SetQuorumQueue();
-
-                        // enables a lazy queue for more stable cluster with better predictive performance.
-                        // Please note that you should disable lazy queues if you require really high performance, if the queues are always short, or if you have set a max-length policy.
-                        receive.SetQueueArgument("declare", "lazy");
-
-                        receive.ConfigureConsumer<EmailConsumer>(context);
-
-                        receive.Bind("send-notification", eventMessage =>
-                        {
-                            eventMessage.RoutingKey = "notification.email";
-                            eventMessage.ExchangeType = ExchangeType.Topic;
-                        });
-                    });
-
+                    config.UseConcurrentMessageLimit(3);
                 });
+
+                if (Boolean.Parse(Configuration["UsingAmazonSQS"]))
+                {
+                    configureMassTransit.UsingAmazonSqs((context, configure) =>
+                    {
+                        ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBusSQS");
+
+                        configure.ReceiveEndpoint(configuration["Queue"], receive =>
+                        {
+                            // disable the default topic binding
+                            receive.ConfigureConsumeTopology = false;
+
+                            receive.ConfigureConsumer<PushNotificationConsumer>(context);
+
+                            receive.Subscribe<INotification>(m => 
+                            {
+                                receive.QueueSubscriptionAttributes["FilterPolicy"] = $"{{\"RoutingKey\": [\"{configuration["Topic"]}\"]}}";
+                                // Using Environment tag
+                                // m.TopicTags.Add("environment", "dev");
+                            });
+                        });
+
+                    });
+                }
+                else
+                {
+                    configureMassTransit.UsingRabbitMq((context, configure) =>
+                    {
+                        configure.PrefetchCount = 4;
+
+                        // Ensures the processor gets its own queue for any consumed messages
+                        configure.ConfigureEndpoints(context, new KebabCaseEndpointNameFormatter(true));
+
+                        ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBus");
+
+                        configure.ReceiveEndpoint(configuration["Queue"], receive =>
+                        {
+                            // turns off default fanout
+                            receive.ConfigureConsumeTopology = false;
+
+                            // a replicated queue to provide high availability and data safety. available in RMQ 3.8+
+                            receive.SetQuorumQueue();
+
+                            // enables a lazy queue for more stable cluster with better predictive performance.
+                            // Please note that you should disable lazy queues if you require really high performance, if the queues are always short, or if you have set a max-length policy.
+                            receive.SetQueueArgument("declare", "lazy");
+
+                            receive.ConfigureConsumer<PushNotificationConsumer>(context);
+
+                            receive.Bind(configuration["BindTopic"], eventMessage =>
+                            {
+                                eventMessage.RoutingKey = configuration["Topic"];
+                                eventMessage.ExchangeType = ExchangeType.Topic;
+                            });
+                        });
+                    });
+                }
             });
             services.AddMassTransitHostedService();
         }

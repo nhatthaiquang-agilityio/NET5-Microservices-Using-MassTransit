@@ -40,6 +40,19 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
     cd DemoMicroservices
     docker-compose up
     ```
+
+#### Amazon SQS and SNS
++ Create a user in IAM: add SQSFullAccess and SNSFullAccess
++ Set and add Region, AccessKey and SecretKey into MessageBusSQS in appsettings.json
+    ```
+    "ConnectionStrings": {
+        "MessageBus": "amqp://admin:password@localhost:5671/",
+        "MessageBusSQS": "[AccessKey]:[SecretKey]@[region]"
+    },
+    "UsingAmazonSQS":"true"
+    ```
+
+#### Run
 + Start multi apps with Visual Studio
 
 + Run Producer: http://localhost:22270/swagger/index.html
@@ -73,16 +86,6 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
             "notificationDate": "2021-12-06T04:31:16.654Z"
         }
         ```
-#### Amazon SQS and SNS
-+ Create a user in IAM: add SQSFullAccess and SNSFullAccess
-+ Set and add Region, AccessKey and SecretKey into MessageBusSQS in appsettings.json
-    ```
-    "ConnectionStrings": {
-        "MessageBus": "amqp://admin:password@localhost:5671/",
-        "MessageBusSQS": "[AccessKey]:[SecretKey]@[region]"
-    },
-    "UsingAmazonSQS":"true"
-    ```
 
 ##### Direct Message
 + Amazon Queue(Direct Queue:consumer-consumers-order)

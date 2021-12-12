@@ -9,6 +9,7 @@ using RabbitMQ.Client;
 using Serilog;
 using System.Threading.Tasks;
 using System;
+using Messages.Commands;
 
 namespace EmailService
 {
@@ -46,7 +47,10 @@ namespace EmailService
 
                     services.AddMassTransit(configureMassTransit =>
                     {
-                        configureMassTransit.AddConsumer<EmailConsumer>();
+                        configureMassTransit.AddConsumer<EmailConsumer>(configureConsumer =>
+                        {
+                            configureConsumer.UseConcurrentMessageLimit(2);
+                        });
 
                         if (Boolean.Parse(configuration["UsingAmazonSQS"]))
                         {
@@ -61,13 +65,14 @@ namespace EmailService
 
                                     receive.ConfigureConsumer<EmailConsumer>(context);
 
-                                    receive.Subscribe(configuration["Bind"], s =>
+                                    receive.PrefetchCount = 4;
+
+                                    receive.Subscribe<INotification>(m =>
                                     {
-                                        // set topic attributes
-                                        s.TopicAttributes["DisplayName"] = configuration["Topic"];
+                                        receive.QueueSubscriptionAttributes["FilterPolicy"] = $"{{\"RoutingKey\": [\"{configuration["Topic"]}\"]}}";
 
                                         // Using Environment tag
-                                        // s.TopicTags.Add("environment", "dev");
+                                        // m.TopicTags.Add("environment", "dev");
                                     });
                                 });
                             });
@@ -80,6 +85,7 @@ namespace EmailService
 
                                 // Ensures the processor gets its own queue for any consumed messages
                                 configure.ConfigureEndpoints(context, new KebabCaseEndpointNameFormatter(true));
+
                                 ServiceBusConnectionConfig.ConfigureNodes(configuration, configure, "MessageBus");
 
                                 configure.ReceiveEndpoint(configuration["Queue"], receive =>
@@ -96,7 +102,7 @@ namespace EmailService
 
                                     receive.ConfigureConsumer<EmailConsumer>(context);
 
-                                    receive.Bind(configuration["Bind"], eventMessage =>
+                                    receive.Bind(configuration["BindTopic"], eventMessage =>
                                     {
                                         eventMessage.RoutingKey = configuration["Topic"];
                                         eventMessage.ExchangeType = ExchangeType.Topic;

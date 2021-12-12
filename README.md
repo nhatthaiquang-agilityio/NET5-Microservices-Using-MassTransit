@@ -1,5 +1,6 @@
 # NET5-Microservices-Using-MassTransit
-Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate from RabbitMQ to AmazonSQS and SNS for each environments.
+Example: .NET 5 Microservices using MassTransit.
+    It is easy to use and migrate from RabbitMQ to AmazonSQS and SNS for each environments.
 
     + RabbitMQ
         - Direct Queue(queue:consumer-consumers-order)
@@ -7,7 +8,8 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
             - Topic=email: will be received by EmailService
             - Topic=push: will be received by Notification
     + Amazon SQS and SNS
-        - Direct Queue(queue:consumer-consumers-order)(Topic:Messages_Commands-Order), create a queue and create a SNS Topic which link the queue
+        - Direct Queue(queue:consumer-consumers-order)(Topic:Messages_Commands-Order),
+            create a queue and create a SNS Topic which link the queue
         - Topic:Messages_Commands-INotification, Routing key: "push" and "email"
 
 ### Requirements
@@ -16,6 +18,7 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
     - RabbitMQ Server Dashboard(http://localhost:15672/)
 
 ### Structures
+--------------
 + Producer: using the API sends messages
 + Consumer: receive messages from Queue(consumer-consumers-order)
 + Notification: receive messages with Exchange=notification and Topic=push
@@ -23,6 +26,7 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
 + Messages: create message model and Service Connection Config for RabbitMQ and AmazonSQS
 
 ### Overview
+-------------
 + Direct Queue
 
     ![Direct Queue](./Images/Direct-Queue.png)
@@ -35,6 +39,7 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
 ### Usages
 
 #### RabbitMQ Server
+---------------------
 + Start RabbitMQ Server
     ```
     cd DemoMicroservices
@@ -42,6 +47,7 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
     ```
 
 #### Amazon SQS and SNS
+------------------------
 + Create a user in IAM: add SQSFullAccess and SNSFullAccess
 + Set and add Region, AccessKey and SecretKey into MessageBusSQS in appsettings.json
     ```
@@ -52,7 +58,33 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
     "UsingAmazonSQS":"true"
     ```
 
+##### Direct Message
+--------------------
++ Amazon Queue(Direct Queue:consumer-consumers-order)
+
+    ![Direct-Queue](./Images/SQS-Queue.jpg)
+
++ Create topic SNS
+    Endpoint: arn:aws:sqs:ap-southeast-1:783560535431:consumer-consumers-order
+
+    ![Topic with SQS Queue](./Images/Topic-SNS-withSQS.png)
+
++ Monitor SQS
+
+    ![Monitor-Queue](./Images/Monitor-SQS.jpg)
+
+##### Topic
+-----------
++ Amazon Topic SNS
+
+    ![Topic-SNS-To-Queues](./Images/Topic-SNS-To-Queues.png)
+
++ Subcription Topic with SQS, and set RoutingKey
+
+    ![Subscriptions-Topic](./Images/Subscription-Topic-WithSQS.png)
+
 #### Run
+--------
 + Start multi apps with Visual Studio
 
 + Run Producer: http://localhost:22270/swagger/index.html
@@ -87,30 +119,8 @@ Example: .NET 5 Microservices using MassTransit. It is easy to use and migrate f
         }
         ```
 
-##### Direct Message
-+ Amazon Queue(Direct Queue:consumer-consumers-order)
-
-    ![Direct-Queue](./Images/SQS-Queue.jpg)
-
-+ Create topic SNS
-    Endpoint: arn:aws:sqs:ap-southeast-1:783560535431:consumer-consumers-order
-
-    ![Topic with SQS Queue](./Images/Topic-SNS-withSQS.png)
-
-+ Monitor SQS
-
-    ![Monitor-Queue](./Images/Monitor-SQS.jpg)
-
-##### Topic
-+ Amazon Topic SNS
-
-    ![Topic-SNS-To-Queues](./Images/Topic-SNS-To-Queues.png)
-
-+ Subcription Topic with SQS, and set RoutingKey
-
-    ![Subscriptions-Topic](./Images/Subscription-Topic-WithSQS.png)
-
 ### References
+--------------
 + [Setting Up MassTransit and RabbitMQ](https://wrapt.dev/blog/building-an-event-driven-dotnet-application-setting-up-masstransit-and-rabbitmq)
 + [RabbitMQ with ASP.NET Core – Microservice Communication with MassTransit](https://codewithmukesh.com/blog/rabbitmq-with-aspnet-core-microservice/)
 + [MassTransit a real use case](https://blexin.com/en/blog-en/masstransit-a-real-use-case/)
